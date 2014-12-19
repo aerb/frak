@@ -10,7 +10,7 @@
     "protected"
     "internal"})
 
-(def punctuation
+(def special-characters
   #{
     "{" "}"
     "(" ")"
@@ -37,25 +37,21 @@
                            symbols)
           :else (recur (next symbols)
                        (cons symbol namespace))
-        )
-      )
-    )
-  )
-)
+        )))))
 
-(defn process-import [symbols]
-  (println "import")
-  symbols)
+(defn process-class [symbols]
+  (let [symbol (first symbols)])
+  )
 
 (defn process-symbols [symbols]
-  (loop [symbols symbols]
-    (if (not (nil? symbols))
-      (let [symbol (first symbols)]
-        (recur
-          (cond
-            (= symbol "package") (process-package (next symbols))
-            (= symbol "import")  (process-import (next symbols))
-            :else (next symbols)))))))
+  (if (not (nil? symbols))
+    (let [symbol (first symbols)]
+      (recur
+        (case symbol
+          "package" (process-package (next symbols))
+          "import"  (process-package (next symbols))
+          "class"   (process-class (next symbols))
+          (next symbols))))))
 
 (defn read-java [] (slurp "test.java"))
 
@@ -65,16 +61,10 @@
 
 (defn pad-all-symbols
   [str]
-  (loop [p (vec punctuation)
-         s str]
-    (if (empty? p)
-      s
-      (recur
-        (rest p)
-        (pad-symbol s (first p)))
-    )
-  ) 
-)
+  (reduce
+    (fn [acc item] (pad-symbol acc item))
+    str
+    special-characters))
 
 (defn get-symbol-stream
   []
@@ -83,9 +73,7 @@
     (str/split
       (pad-all-symbols
         (read-java))
-      #"\s")
-    )
-  )
+      #"\s")))
 
 (defn -main
   [& args]

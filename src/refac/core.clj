@@ -1,8 +1,7 @@
 (ns refac.core
-  (:gen-class))
-
-(require '[clojure.string :as str])
-(use 'clojure.java.io)
+  (:gen-class)
+  (use clojure.java.io)
+  (use refac.io))
 
 (def visibility-keywords
   #{"private"
@@ -10,75 +9,47 @@
     "protected"
     "internal"})
 
-(def special-characters
-  #{
-    "{" "}"
-    "(" ")"
-    "[" "]"
-    "<" ">"
-    ";"
-    "."
-    "="
-    ","
-  })
+(defn handle-namespace [namespace symbol]
+  (case symbol
+    "." [false namespace]
+    ";" [true  namespace]
+        [false (if (nil? symbol)
+                 (list symbol)
+                 (cons symbol namespace))]
+        ))
 
+(defn handle-package [context symbol]
+  (let [[complete namespace] (handle-namespace (context :namespace) symbol)]
+    (if complete
+      (assoc context :mode "init"
+                     :namespace namespace)
+      (assoc context :namespace namespace))))
 
-(defn process-package [symbols]
-  (println "package")
-  (loop [symbols symbols
-         namespace ()]
-    (if (not (nil? symbols))
-      (let [symbol (first symbols)]
-        (cond
-          (= symbol ".") (recur (next symbols)
-                                namespace)
-          (= symbol ";") (do
-                           (println (reverse namespace))
-                           symbols)
-          :else (recur (next symbols)
-                       (cons symbol namespace))
-        )))))
+(defn handle-import [context symbol]
+  (if (= ";" symbol)
+    (assoc context :mode "init"))
+  context)
 
-(defn process-class [symbols]
-  (let [symbol (first symbols)])
-  )
+(defn next-handler [context symbol]
+  (case symbol
+    "package" (assoc context :mode "package")
+    "import"  (assoc context :mode "import")))
+
+(defn handle-symbol [context symbol]
+  (let [mode (context :mode)]
+    (case mode
+      "init"    (next-handler   context symbol)
+      "package" (handle-package context symbol)
+      "import"  (handle-import  context symbol)
+      context)))
 
 (defn process-symbols [symbols]
-  (if (not (nil? symbols))
-    (let [symbol (first symbols)]
-      (recur
-        (case symbol
-          "package" (process-package (next symbols))
-          "import"  (process-package (next symbols))
-          "class"   (process-class (next symbols))
-          (next symbols))))))
-
-(defn read-java [] (slurp "test.java"))
-
-(defn pad-symbol [orig symbol]
-  (str/replace orig symbol (str/join [" " symbol " "]))
-)
-
-(defn pad-all-symbols
-  [str]
-  (reduce
-    (fn [acc item] (pad-symbol acc item))
-    str
-    special-characters))
-
-(defn get-symbol-stream
-  []
-  (filter
-    (fn [x] (not (empty? x)))
-    (str/split
-      (pad-all-symbols
-        (read-java))
-      #"\s")))
+  (reduce handle-symbol (hash-map :mode "init") symbols))
 
 (defn -main
   [& args]
-  (process-symbols
-    (get-symbol-stream)))
+  (println (process-symbols
+    (get-symbol-stream))))
 
 
 

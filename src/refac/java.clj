@@ -7,8 +7,7 @@
     ";" [true  namespace]
     [false (if (nil? symbol)
              (list symbol)
-             (cons symbol namespace))]
-    ))
+             (cons symbol namespace))]))
 
 (defn handle-package [context symbol]
   (let [[complete namespace] (handle-namespace (get-in context [:class :namespace]) symbol)]
@@ -26,7 +25,6 @@
 (defn handle-class [context symbol]
   (case symbol
     "{" (-> context
-            (assoc-in [:class :body] {})
             (goto-state "class-body"))
     (-> context
         (assoc-in [:class :name] symbol)
@@ -36,14 +34,21 @@
 (defn handle-declaration [context symbol]
   (case symbol
     "class" (-> context (goto-state "class"))
-    (-> context (goto-state "type"))))
+    (-> context
+        (goto-state-with "type" #(assoc % :type symbol)))))
 
 (defn handle-class-body [context symbol]
   (case symbol
     "}" (-> context (goto-state "base"))
-    (-> context (goto-state-with "declaration" symbol))))
+    (-> context (goto-state-with "declaration" {:visability symbol}))))
 
-(defn handle-type [context symbol] context)
+(defn handle-field-name [context symbol]
+  (-> context
+      (goto-state "field")))
+
+(defn handle-type [context symbol]
+    (-> context
+        (goto-state-with "field" #(assoc % :name symbol))))
 
 (defn handle-base [context symbol]
   (case symbol

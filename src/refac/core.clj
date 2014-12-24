@@ -1,9 +1,7 @@
 (ns refac.core
   (:gen-class)
-  (use clojure.java.io)
   (use refac.io)
-  (use refac.java)
-  (:require [clojure.string :as str]))
+  (use refac.java))
 
 (def states
   {"declaration"  handle-declaration
@@ -12,6 +10,7 @@
    "import"       handle-import
    "class"        handle-class
    "type"         handle-type
+   "field"        handle-field-name
    "class-body"   handle-class-body})
 
 (defn state-for [arg]
@@ -24,7 +23,6 @@
         current (state :current)
         handler (state-for current)
         next    (handler context symbol)]
-    (println next)
     next))
 
 (defn initial-context [] {:state {:current "base" :arg nil}

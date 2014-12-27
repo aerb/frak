@@ -1,59 +1,46 @@
 (ns refac.java
-  (use refac.fsm))
-
-(defn handle-namespace [namespace symbol]
-  (case symbol
-    "." [false namespace]
-    ";" [true  namespace]
-    [false (if (nil? symbol)
-             (list symbol)
-             (cons symbol namespace))]))
+  (:require [refac.fsm :as fsm]))
 
 (def handlers {
+   "ignore-to-eol"
+   (fn [context]
+     (fsm/ccase context
+                ";" (fsm/pop-state)
+                (fsm/stay)))
    "package"
-    (fn [context symbol]
-      (let [[complete namespace] (handle-namespace (get-in context [:class :namespace]) symbol)]
-        (if complete
-          (-> context
-              (goto-state "base")
-              (assoc-in [:class :namespace] namespace))
-          (assoc-in context [:class :namespace] namespace))))
+   (fn [context] (fsm/goto "ignore-to-eol"))
    "import"
-   (fn [context symbol]
-     (if (= ";" symbol)
-       (goto-state context "base")
-       context))
+   (fn [context] (fsm/goto "ignore-to-eol"))
    "class"
-   (fn [context symbol]
-     (case symbol
-       "{" (-> context
-               (goto-state "class-body"))
-       (-> context
-           (assoc-in [:class :name] symbol)
-           (assoc-in [:class :visability] (get-in context [:state :arg])))))
+   (fn [context]
+     (fsm/ccase context
+       "{" (fsm/goto "class-body")
+       (-> (fsm/stay)
+           (fsm/remember [:class :name] (fsm/curr context)))))
    "declaration"
-   (fn [context symbol]
-     (case symbol
-       "class" (-> context (goto-state "class"))
-       (-> context
-           (goto-state-with "type" #(assoc % :type symbol)))))
+   (fn [context]
+     (fsm/ccase context
+       "class" (fsm/goto "class")
+       (fsm/goto "type")))
    "class-body"
-   (fn [context symbol]
-     (case symbol
-       "}" (-> context (goto-state "base"))
-       (-> context (goto-state-with "declaration" {:visability symbol}))))
+   (fn [context]
+     (fsm/ccase context
+       "}" (fsm/pop-state)
+       (-> (fsm/goto "declaration")
+           (fsm/push-state))))
    "field"
-   (fn [context symbol]
-     (-> context
-         (goto-state "field")))
+   (fn [context]
+     (-> (fsm/goto "ignore-to-eol")))
    "type"
-   (fn [context symbol]
-     (-> context
-         (goto-state-with "field" #(assoc % :name symbol))))
+   (fn [context]
+     (-> (fsm/goto "field")))
    "base"
-   (fn [context symbol]
-     (case symbol
-       ("class" "import" "package")                (goto-state context symbol)
-       ("private" "public" "protected" "internal") (goto-state-with context "declaration" symbol)
-       (throw IllegalStateException)))
+   (fn [context]
+     (let [cur (fsm/curr context)]
+       (case cur
+             ("class" "import" "package") (-> (fsm/goto (fsm/curr context))
+                                              (fsm/push-state))
+             ("private" "public" "protected" "internal") (fsm/goto "declaration")
+             (throw IllegalStateException)))
+     )
    })

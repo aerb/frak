@@ -3,20 +3,47 @@
   (use refac.io)
   (use refac.java))
 
-(defn state-for [arg]
+(defn handler-for [arg]
   (if (contains? handlers arg)
     (handlers arg)
-    (throw (Exception. arg))))
+    (do
+      (println arg)
+      (throw (IllegalStateException. arg)))))
 
-(defn handle-symbol [context symbol]
-  (let [state   (:state context)
-        current (:current state)
-        handler (state-for current)
-        next    (handler context symbol)]
-    next))
+(defn handle-symbol [context current]
+  (let [context   (assoc context :current current)
 
-(defn initial-context [] {:state {:current "base" :arg nil}
-                          :class {:fields {}}})
+        log       (println "context -> " context)
+
+        current   (:state context)
+        handler   (handler-for current)
+
+        response  (handler context)
+
+        remember  (:remember response)
+        next      (:next response)
+        pop       (:pop-state response)
+        push      (:push-state response)
+        context   (cond
+                    next
+                    (assoc (if push
+                             (assoc context
+                                    :pushed
+                                    current)
+                             context)
+                           :state next)
+                    pop
+                    (assoc context :state (:pushed context))
+                    :else
+                    context)
+        context   (if remember (assoc context
+                                      :remember
+                                      remember)
+                               context)]
+
+    (println "response -> " response)
+    context
+))
 
 (defn fsm-reduce [reducer init items]
   (loop [reduction init
@@ -27,7 +54,7 @@
                     (rest items)))))
 
 (defn process-symbols [symbols]
-  (fsm-reduce handle-symbol (initial-context) symbols))
+  (fsm-reduce handle-symbol {:state "base"} symbols))
 
 
 (defn -main

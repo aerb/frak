@@ -3,53 +3,59 @@
   (use refac.io)
   (use refac.java))
 
-(defn handler-for [arg]
-  (if (contains? handlers arg)
-    (handlers arg)
-    (do
-      (println arg)
-      (throw (IllegalStateException. arg)))))
+(defn ignore-to-eol [[first & others]]
+  (case first
+    ";" others
+    (recur others)))
 
+(defn do-package [items] [(ignore-to-eol items) {}])
+(defn do-import  [items] [(ignore-to-eol items) {}])
 
-(defn assoc-if [context key value]
-  (if value
-    (assoc context key value)
-    context))
+(defn do-open-body [[first & others]]
+  (if-not (= first "{")
+    (throw (IllegalStateException. (str "Expected {, got " first)))
+    others))
 
-(defn handle-response [context response]
-  (let [{:keys [next
-                remember
-                pop-state
-                push-state
-                push-arg]} response
+(defn do-body [items]
+  (loop [[first & others] (do-open-body items)
+         indent 1]
+    (println first)
+    (when-not (= indent 0)
+      (recur
+        others
+         (+ indent
+            (case first
+              "{"  1
+              "}" -1
+              0))
+        ))))
 
-        context   (if pop-state  (assoc context :state (:pushed-state context)) context)
-        context   (if push-state (assoc context :pushed-state (:state context)) context)
-        context   (if push-arg   (assoc context :args (cons push-arg (:args context))) context)
-        context   (assoc-if context :state next)
-        context   (assoc-if context :remember remember)]
-    context))
+(defn do-type [[first second & others]]
+  (let [info {:type first :name second}
+        remaining (case first
+                     "class" (do-body others))]
+    [remaining info]))
 
-(defn handle-symbol [context symbol]
-  (println "context -> " context " -- " symbol)
-  ;(println symbol)
-  (println (context :remember))
-  (let [handler       (handler-for (:state context))
-        response      (handler symbol (:args context))
-        next-context  (handle-response context response)]
-    ;(println "response -> " response)
-    next-context))
+(defn do-declaration [items]
+  (let [[first & others] items
+        [visability [remaining info]]
+          (case first
+            ("public" "private" "protected" "internal") [first (do-type others)]
+            ["private" (do-type items)])]
+    [remaining (assoc info :visability visability)]))
 
-(defn fsm-reduce [reducer init items]
-  (loop [reduction init
-         items     items]
-    (if (not (empty? items))
-             (recur (reducer reduction
-                             (first items))
-                    (rest items)))))
+(defn do-root [items]
+  (loop [[items _] [items {}]]
+    (let [[first & others] items]
+      (println first)
+      (recur
+        (case first
+          "package" (do-package others)
+          "import"  (do-import others)
+          (do-declaration items))))))
 
 (defn process-symbols [symbols]
-  (fsm-reduce handle-symbol {:state "base"} symbols))
+  (do-root symbols))
 
 
 (defn -main

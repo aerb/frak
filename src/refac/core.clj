@@ -10,40 +10,35 @@
       (println arg)
       (throw (IllegalStateException. arg)))))
 
-(defn handle-symbol [context current]
-  (let [context   (assoc context :current current)
 
-        log       (println "context -> " context)
+(defn assoc-if [context key value]
+  (if value
+    (assoc context key value)
+    context))
 
-        current   (:state context)
-        handler   (handler-for current)
+(defn handle-response [context response]
+  (let [{:keys [next
+                remember
+                pop-state
+                push-state
+                push-arg]} response
 
-        response  (handler context)
+        context   (if pop-state  (assoc context :state (:pushed-state context)) context)
+        context   (if push-state (assoc context :pushed-state (:state context)) context)
+        context   (if push-arg   (assoc context :args (cons push-arg (:args context))) context)
+        context   (assoc-if context :state next)
+        context   (assoc-if context :remember remember)]
+    context))
 
-        remember  (:remember response)
-        next      (:next response)
-        pop       (:pop-state response)
-        push      (:push-state response)
-        context   (cond
-                    next
-                    (assoc (if push
-                             (assoc context
-                                    :pushed
-                                    current)
-                             context)
-                           :state next)
-                    pop
-                    (assoc context :state (:pushed context))
-                    :else
-                    context)
-        context   (if remember (assoc context
-                                      :remember
-                                      remember)
-                               context)]
-
-    (println "response -> " response)
-    context
-))
+(defn handle-symbol [context symbol]
+  (println "context -> " context " -- " symbol)
+  ;(println symbol)
+  (println (context :remember))
+  (let [handler       (handler-for (:state context))
+        response      (handler symbol (:args context))
+        next-context  (handle-response context response)]
+    ;(println "response -> " response)
+    next-context))
 
 (defn fsm-reduce [reducer init items]
   (loop [reduction init

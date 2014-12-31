@@ -1,6 +1,7 @@
 package com.vizrt.pilotpublish.client.model;
 
 import com.vizrt.pilotpublish.client.ui.ObservableList;
+import Destination;
 
 public class Destination {
     private String id;
@@ -8,6 +9,8 @@ public class Destination {
     private String icon;
 
     ObservableList<Transfer> transfers = new ObservableList<>();
+
+	Destination dest = 1;
 
     public void setId(String id) {
         this.id = id;

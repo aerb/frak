@@ -9,7 +9,7 @@
   (if (= first stop-at) others
     (recur others stop-at)))
 
-(defn nested-ignore-to [open close items]
+(defn nested-ignore-to [items open close]
   (loop [items items
          indent 1]
 
@@ -30,13 +30,19 @@
 (defn do-package [items] [(ignore-to-eol items) {}])
 (defn do-import  [items] [(ignore-to-eol items) {}])
 
+(declare do-declaration-modifiers)
+(declare do-declaration)
+(declare do-body)
+
 (defn do-method [items]
-  (->> (ignore-to items "{")
-       (nested-ignore-to "{" "}")))
+  (let [[fst & others] items]
+    [(case fst
+      "(" (nested-ignore-to others "(" ")")
+      items)
+     {:is-method (= fst "(")}
+    ]))
 
 (defn do-assignment [items] (ignore-to-eol items))
-
-(declare do-declaration)
 
 (defn do-body [items]
   (let [[next & others] items]
@@ -46,14 +52,16 @@
         (let [[remaining _] (do-declaration items)]
           remaining)))))
 
-(defn do-declaration-name [[name assignment & others]]
-  (let [info {:name name}
-        remaining (case assignment
+(defn do-declaration-name [[name & others]]
+  [others {:name name}])
+
+(defn do-declaration-assign [[assignment & others]]
+  (let [remaining (case assignment
                     "{" (do-body others)
                     "(" (do-method others)
                     "=" (do-assignment others)
                     ";" others)]
-    [remaining info]))
+    [remaining {}]))
 
 (defn do-generic-type [items]
   (loop [items items
@@ -80,34 +88,81 @@
         remaining (if has-generic
                     remaining
                     (cons generic-declaration others))
-        type {:type (str type generic)}
+        type {:type (str type generic)}]
+    [remaining type]))
 
-        [remaining info] (do-declaration-name remaining)]
-    [remaining (merge info type)]))
+(defn append-modifier [[remaining info] modifer]
+  (let [modifiers (:modifiers info)]
+    [remaining (assoc info
+                      :modifiers
+                      (cons modifer modifiers))]))
 
-(defn log [[remaining info]]
-  (println info)
-  [remaining info])
+(defn do-declaration-modifiers [items]
+  (let [[fst & others] items
+        modifier (case fst
+                   ("public" "private"
+                    "protected" "internal"
+                    "static" "final") fst
+                   nil)]
+    (if modifier
+      (-> (do-declaration-modifiers others)
+          (append-modifier modifier))
+      [items nil])))
+
+
+(defn merge-results [results0
+                     results1]
+  (let
+    [[_          info0] results0
+     [remaining1 info1] results1]
+    (if results1
+      [remaining1 (merge info0 info1)]
+    results0)))
+
+(defn chain-merge [items & fns]
+  (let [[fn & fns] fns]
+    (if fn
+      (let [results (fn items)
+           [remaining _] results]
+        (merge-results results
+                       (apply chain-merge
+                              remaining
+                              fns)))
+      [items nil])))
+
+(defn is-next-declaration [items]
+  (loop [[fst & rest] items
+         count 0]
+    (case fst
+      ("this" "super") false
+      "=" (> count 1)
+      ("(" "{") true
+      (recur rest (inc count)))))
 
 (defn do-declaration [items]
-  (let [[first & others] items
-        declaration (case first
-                      ("public" "private" "protected" "internal") [first (do-declaration-type others)]
-                      ["private" (do-declaration-type items)])
-        [visability [remaining info]] declaration]
+  (chain-merge items
+               do-declaration-modifiers
+               do-declaration-type
+               do-declaration-name
+               do-method))
 
-    (log [remaining (merge info {:visability visability})])))
+(defn do-root [all-items]
+  (let [mapped (map-indexed (fn [index item] [index item]) all-items)]
+    (loop [[items info] [all-items {}]]
 
-(defn do-root [items]
-  (loop [[items _] [items {}]]
-    (let [[next & others] items]
-      (recur
-        (case next
-          "package" (do-package others)
-          "import"  (do-import others)
-          (do-declaration items))))))
+      (println (for [[index value] mapped
+                      :when (identical? value (:name info))]
+                      [index value]))
 
-(defn process-symbols [symbols]
-  (do-root symbols))
+      (let [[next & others] items]
+        (if next
+          (recur
+            (case next
+              "package" (do-package others)
+              "import"  (do-import others)
+              (do-declaration-modifiers items)))
+          (println "done"))))))
+
+(defn process-symbols [symbols] (do-root symbols))
 
 (defn -main [] (process-symbols (get-symbol-stream)))

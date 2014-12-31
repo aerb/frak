@@ -130,6 +130,8 @@
                               fns)))
       [items nil])))
 
+
+
 (defn is-next-declaration [items]
   (loop [[fst & rest] items
          count 0]

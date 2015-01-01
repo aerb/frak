@@ -1,7 +1,7 @@
 (ns refac.core
   (:gen-class)
   (use refac.io)
-  (use refac.java)
+  (use refac.syntax)
   (:require [clojure.string :as s]))
 
 (defn ignore-to [[first & others] stop-at]
@@ -63,33 +63,7 @@
                     ";" others)]
     [remaining {}]))
 
-(defn do-generic-type [items]
-  (loop [items items
-         depth 1
-         generic "<"]
-    (let [[first & others] items]
-      (if-not (= depth 0)
-        (recur
-          others
-          (+ depth
-             (case first
-               "<"  1
-               ">" -1
-               0))
-          (str generic first))
-        [items generic]))))
 
-(defn do-declaration-type [items]
-  (let [[type generic-declaration & others] items
-        [remaining generic] (case generic-declaration
-                              "<" (do-generic-type others)
-                              nil)
-        has-generic (not (nil? generic))
-        remaining (if has-generic
-                    remaining
-                    (cons generic-declaration others))
-        type {:type (str type generic)}]
-    [remaining type]))
 
 (defn append-modifier [[remaining info] modifer]
   (let [modifiers (:modifiers info)]
@@ -108,7 +82,6 @@
       (-> (do-declaration-modifiers others)
           (append-modifier modifier))
       [items nil])))
-
 
 (defn merge-results [results0
                      results1]
@@ -144,7 +117,7 @@
 (defn do-declaration [items]
   (chain-merge items
                do-declaration-modifiers
-               do-declaration-type
+               ;do-declaration-type
                do-declaration-name
                do-method))
 

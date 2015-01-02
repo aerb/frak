@@ -14,17 +14,35 @@
       (if modifiers
         [(drop (count modifiers) items) modifiers]))))
 
-(defn is-valid-name [[fst & rest]]
-  (if (or fst rest)
-    (if (or (= \_ fst)
-            (Character/isLetterOrDigit fst))
-      (if rest
-        (recur rest)
-        true)
-      false)
-    false))
+(defn is-valid-name [items]
+  (letfn [(is-letter-or-special
+            [char]
+            (or (= \_ char)
+                (Character/isLetter char)))
+          (is-letter-digit-or-special
+            [char]
+            (or (is-letter-or-special char)
+                (Character/isDigit char)))
+          (check-char
+            [[fst & rest] validator if-valid]
+            (if (or fst rest)
+              (if (validator fst)
+                (if rest
+                  (if-valid rest)
+                  true))))
+          (check-remaining
+            [items]
+            (check-char items
+                        is-letter-digit-or-special
+                        check-remaining))
+          (check-first
+            [items]
+            (check-char items
+                        is-letter-or-special
+                        check-remaining))]
+    (not (nil? (check-first items)))))
 
-(defn get-name [items]
+(defn get-full-name [items]
   (letfn [(get-seperator [[fst & rest]]
             (case fst
               "." (let [next-ns (get-ns rest)]
@@ -39,7 +57,7 @@
     (let [name (get-ns items)
           size (count name)]
       (if name
-        [(drop size items) (reduce str name)]))))
+        [(drop size items) name]))))
 
 (declare get-type)
 
@@ -64,7 +82,7 @@
     (get-open items)))
 
 (defn get-type [items]
-  (let [[remaining type-name] (get-name items)]
+  (let [[remaining type-name] (get-full-name items)]
     (if type-name
       (let [[generic-remaining generic] (get-generic-type remaining)]
         (if generic
@@ -74,7 +92,7 @@
 (defn is-declaration [items]
   (loop [[fst & rest :as all] items
          count 0]
-    (let [[remaining _ :as is-name ] (get-name all)]
+    (let [[remaining _ :as is-name ] (get-full-name all)]
       (if is-name
         (recur remaining (inc count))
         (and (= fst "=") (= count 1))))))
@@ -92,7 +110,7 @@
               (let [[remaining decl :as found]
                     (chain-merge items
                                  get-type :type
-                                 get-name :name)]
+                                 get-full-name :name)]
                 (if found
                   (get-seperator remaining (cons decl declarations)))))
           (get-seperator [[fst & rest] declarations]
@@ -102,7 +120,44 @@
                nil))]
     (get-open items)))
 
+(defn log [v] (prn "log" v) v)
 
+(defn get-value
+  [items]
+  (letfn
+    [(seperator
+       [[fst & rest]]
+       (case fst
+         "," (inner-value rest)
+         ")" [rest nil nil]
+         nil))
+     (inner-value
+       [items]
+       (when-let [[remaining value] (get-value items)]
+         (cons-into-thrd value
+                         (seperator remaining))))
+     (inner-values
+       [[fst & rest :as all]]
+       (case fst
+         ")" [rest nil]
+         (log
+           (inner-value all)
+           )
+         ))
+     (method
+       [all]
+       (if-let [[[fst & rest] name] (get-full-name all)]
+         (case fst
+           "(" (log (cons-into-scnd name
+                                    (log (inner-values rest))))
+           nil)))
+     (get-var
+       [items]
+       (if-let [name (get-full-name items)]
+         name))]
+    (if-let [method (method items)]
+      method
+      (get-var items))))
 
 
 

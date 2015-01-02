@@ -67,14 +67,14 @@
                get-declaration-modifiers :modifiers
                get-generic-type :generic-symbol
                get-type :return-type
-               get-name :name
+               get-full-name :name
                get-parameters :params))
 
 (defn get-type-declaration [items]
   (optional-chain-merge items
                get-declaration-modifiers :modifiers
                get-type :type
-               get-name :name
+               get-full-name :name
                get-type-declaration-body :members))
 
 (defn do-root [all-items]

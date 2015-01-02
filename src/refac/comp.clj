@@ -4,6 +4,12 @@
 (defn merge-into-vec [m0 [items m1]]
   [items (merge m0 m1)])
 
+(defn cons-into-scnd [item vec]
+  (assoc vec 1 item))
+
+(defn cons-into-thrd [item [fst scnd coll]]
+  [fst scnd (cons item coll)])
+
 (defn chain-merge [items & [fn key & rest]]
   (if fn
     (let [[remaining artifact :as success] (fn items)]

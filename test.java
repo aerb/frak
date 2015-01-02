@@ -1,12 +1,13 @@
-package com.vizrt.pilotpublish.client.model;
+package com.client.model;
 
-import com.vizrt.pilotpublish.client.ui.ObservableList;
+import com.client.ui.ObservableList;
 import Destination;
 
 public class Destination {
     private String id;
     private String label;
     private String icon;
+    private String spliton = ";";
 
     ObservableList<Transfer> transfers = new ObservableList<>();
 
@@ -14,6 +15,7 @@ public class Destination {
 
     public void setId(String id) {
         this.id = id;
+        this.label = ("testing" + label + id).toLowerCase().toUpperCase().split(spliton);
     }
 
     public String getId() {

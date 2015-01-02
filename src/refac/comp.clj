@@ -2,9 +2,9 @@
   (use refac.comp))
 
 (defn merge-into-vec [m0 [items m1]]
-  [items (merge m0 m1)])
+    [items (merge m0 m1)])
 
-(defn cons-into-scnd [item vec]
+(defn into-scnd [item vec]
   (assoc vec 1 item))
 
 (defn cons-into-thrd [item [fst scnd coll]]

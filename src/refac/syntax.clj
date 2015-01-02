@@ -57,7 +57,7 @@
     (let [name (get-ns items)
           size (count name)]
       (if name
-        [(drop size items) name]))))
+        [(drop size items) (filter #(not= "." %) name)]))))
 
 (declare get-type)
 
@@ -126,40 +126,33 @@
   [items]
   (letfn
     [(seperator
-       [[fst & rest]]
+       [[fst & rest] values]
        (case fst
-         "," (inner-value rest)
-         ")" [rest nil nil]
+         "," (trampoline inner-value rest values)
+         ")" [rest {:params values}]
          nil))
      (inner-value
-       [items]
+       [items values]
        (when-let [[remaining value] (get-value items)]
-         (cons-into-thrd value
-                         (seperator remaining))))
+         (trampoline seperator remaining (cons value values))))
      (inner-values
        [[fst & rest :as all]]
        (case fst
          ")" [rest nil]
-         (log
-           (inner-value all)
-           )
-         ))
+         (inner-value all nil)))
      (method
        [all]
-       (if-let [[[fst & rest] name] (get-full-name all)]
+       (when-let [[[fst & rest] name] (get-full-name all)]
          (case fst
-           "(" (log (cons-into-scnd name
-                                    (log (inner-values rest))))
+           "(" (if-let [inner (inner-values rest)]
+                 (merge-into-vec {:method name} inner))
            nil)))
      (get-var
        [items]
        (if-let [name (get-full-name items)]
-         name))]
+         (into-scnd {:var (name 1)} name)))]
     (if-let [method (method items)]
       method
       (get-var items))))
-
-
-
 
 

@@ -128,8 +128,11 @@
     [(infix
        [[fst & rest] left-value]
        (case fst
-         ("+" "-" "/" "*") [rest {:method (list fst)
-                                  :params (list left-value)}]
+         ("+" "-" "/" "*")
+         (if-let [[remaining right-value] (get-value rest)]
+           [remaining {:method (list fst)
+                       :params (list left-value right-value)
+                       }])
          nil))
      (chain-operator
        [[fst & rest]]

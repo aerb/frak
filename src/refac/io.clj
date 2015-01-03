@@ -26,11 +26,13 @@
     java-str
     special-characters))
 
-(defn get-symbol-stream
-  []
+(defn norm [str]
   (filter
     (fn [x] (not (empty? x)))
     (str/split
       (pad-all-symbols
-        (read-java))
+        str)
       #"\s")))
+
+(defn get-symbol-stream
+  [] (norm (read-java)))

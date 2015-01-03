@@ -125,7 +125,19 @@
 (defn get-value
   [items]
   (letfn
-    [(seperator
+    [(infix
+       [[fst & rest] left-value]
+       (case fst
+         ("+" "-" "/" "*") [rest {:method (list fst)
+                                  :params (list left-value)}]
+         nil))
+     (chain-operator
+       [[fst & rest]]
+       (case fst
+         "." (if-let [[remaining val] (get-value rest)]
+               [remaining {:chained val}])
+         nil))
+     (seperator
        [[fst & rest] values]
        (case fst
          "," (trampoline inner-value rest values)
@@ -150,9 +162,37 @@
      (get-var
        [items]
        (if-let [name (get-full-name items)]
-         (into-scnd {:var (name 1)} name)))]
-    (if-let [method (method items)]
-      method
-      (get-var items))))
+         (into-scnd {:var (name 1)} name)))
+     (get-method-or-var
+       [items]
+       (if-let [method (method items)]
+         method
+         (get-var items)))]
+    (when-let [[remaining val] (get-method-or-var items)]
+      (if-let [chained (chain-operator remaining)]
+        (merge-into-vec val chained)
+        (if-let [infix (infix remaining val)]
+          infix
+          [remaining val])))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

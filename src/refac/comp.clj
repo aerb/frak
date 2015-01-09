@@ -20,8 +20,9 @@
 
 (defn optional-chain-merge [items & [fn key & rest]]
   (if fn
-    (let [[remaining artifact :as success] (fn items)]
-      (if success
-        (merge-into-vec {key artifact} (apply optional-chain-merge remaining rest))
-        (apply optional-chain-merge items rest)))
+    (if-let [[remaining artifact] (fn items)]
+      (merge-into-vec {key artifact} (apply optional-chain-merge remaining rest))
+      (apply optional-chain-merge items rest))
     [items {}]))
+
+

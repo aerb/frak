@@ -60,7 +60,8 @@
                     ";" others)]
     [remaining {}]))
 
-(defn get-type-declaration-body [])
+(defn get-type-declaration-body [[first & rest :as items]]
+  (if (is-declaration items) nil))
 
 (defn get-method-declaration [items]
   (optional-chain-merge items
@@ -69,6 +70,19 @@
                get-type :return-type
                get-full-name :name
                get-parameters :params))
+
+(defn if-remaining [match matched-fn]
+  (fn [[fst & rest]]
+      (condp = fst
+        match (matched-fn rest)
+        nil)))
+
+(defn get-var-declaration [items]
+  (optional-chain-merge items
+                        get-declaration-modifiers :modifiers
+                        get-type :type
+                        get-full-name :name
+                        (if-remaining "=" get-value) :value))
 
 (defn get-type-declaration [items]
   (optional-chain-merge items
